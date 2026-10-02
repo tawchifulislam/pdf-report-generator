@@ -34,21 +34,36 @@ app.get('/health', (req, res) => {
 });
 
 app.post('/reports', async (req, res) => {
+  const force = req.body?.force === true;
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (!force) {
+    const existing = db
+      .prepare(
+        'SELECT id FROM reports WHERE substr(created_at, 1, 10) = ? ORDER BY id DESC LIMIT 1',
+      )
+      .get(today);
+    if (existing) {
+      return res
+        .status(200)
+        .json({ id: existing.id, file: `/reports/${existing.id}/file` });
+    }
+  }
+
+  const createdAt = new Date().toISOString();
+  const { lastInsertRowid } = db
+    .prepare('INSERT INTO reports (path, created_at) VALUES (?, ?)')
+    .run('', createdAt);
+  const id = Number(lastInsertRowid);
+  const filePath = path.join('reports', `${id}.pdf`);
+
   try {
-    const createdAt = new Date().toISOString();
-    const { lastInsertRowid } = db
-      .prepare('INSERT INTO reports (path, created_at) VALUES (?, ?)')
-      .run('', createdAt);
-    const id = Number(lastInsertRowid);
-    const filePath = path.join('reports', `${id}.pdf`);
-
     await renderPdf(filePath);
-
     db.prepare('UPDATE reports SET path = ? WHERE id = ?').run(filePath, id);
-
     res.status(201).json({ id, file: `/reports/${id}/file` });
   } catch (err) {
     console.error(err);
+    db.prepare('DELETE FROM reports WHERE id = ?').run(id);
     res.status(500).json({ error: 'Failed to generate report' });
   }
 });
