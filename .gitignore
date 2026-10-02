@@ -3,3 +3,4 @@ reports/
 report.db
 .env
 .DS_Store
+*.pdf
