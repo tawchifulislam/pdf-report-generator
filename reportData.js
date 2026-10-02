@@ -29,6 +29,12 @@ function getReportData() {
     )
     .all();
 
+  const allOrders = db
+    .prepare(
+      'SELECT id, customer, product, amount, created_at FROM orders ORDER BY id',
+    )
+    .all();
+
   db.close();
 
   return {
@@ -36,6 +42,7 @@ function getReportData() {
     totalRevenue: totals.totalRevenue,
     topProducts,
     ordersPerDay,
+    allOrders,
   };
 }
 
